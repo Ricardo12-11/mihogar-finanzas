@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Usuarios - MiHogarFinanzas</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="estilos.css">
+  
+  <style>
+    /* Estilos específicos de esta página (Manteniendo tu diseño original) */
+    .form-container, .table-container {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.25rem;
+      border: 1px solid var(--gray-200);
+    }
+    .form-container h2 {
+      color: var(--gray-800);
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+    }
+    .form-group { margin-bottom: 0; }
+    th {
+      background: var(--primary);
+      color: white;
+      padding: 0.6rem 0.4rem;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+    .actions button {
+      margin-right: 0.35rem;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+    }
+    /* Etiquetas del Bono */
+    .bono-aplica { color: var(--success); font-weight: 600; font-size: 0.75rem; }
+    .bono-no-aplica { color: var(--danger); font-weight: 600; font-size: 0.75rem; }
+    
+    /* Mensajes de error/éxito */
+    #msg {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    #msg:not(:empty) {
+      background: var(--success-light);
+      color: #166534;
+      border-left: 3px solid var(--success);
+    }
+    #msg.error:not(:empty) {
+      background: var(--danger-light);
+      color: #dc2626;
+      border-left: 3px solid var(--danger);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">
+      <span>MiHogarFinanzas</span>
+    </div>
+    <a href="/inmuebles.html">Inmuebles</a>
+    <a href="/usuarios.html" class="active">Usuarios</a>
+    <a href="/planpagos.html">Plan de Pagos</a>
+    <a href="/creditos.html">Créditos</a>
+    
+    <div class="logout">
+      <button id="logout">Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <h1>Gestión de Usuarios</h1>
+    <p style="color: var(--gray-500); margin-bottom: 1.25rem;">Administra la información de tus usuarios</p>
+
+    <div class="form-container">
+      <h2 id="formTitle">Registrar Usuario</h2>
+      <form id="clienteForm">
+        <input type="hidden" id="clienteId">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="nombre">Nombre Completo</label>
+            <input type="text" id="nombre" placeholder="Ej: Carlos Ponce Arce" required>
+          </div>
+          <div class="form-group">
+            <label for="dni">DNI</label>
+            <input type="text" id="dni" maxlength="8" placeholder="8 dígitos" required>
+          </div>
+          <div class="form-group">
+            <label for="correo">Correo Electrónico</label>
+            <input type="email" id="correo" placeholder="correo@ejemplo.com" required>
+          </div>
+          <div class="form-group">
+            <label for="telefono">Teléfono</label>
+            <input type="tel" id="telefono" placeholder="9xxxxxxxx" required>
+          </div>
+          <div class="form-group">
+            <label for="ingresos">Ingresos Mensuales (S/)</label>
+            <input type="number" id="ingresos" min="0" placeholder="Ej: 3000" required>
+          </div>
+          <div class="form-group">
+            <label for="estado">Estado Civil</label>
+            <select id="estado" required>
+              <option value="">Seleccione...</option>
+              <option value="Soltero">Soltero</option>
+              <option value="Casado">Casado</option>
+              <option value="Divorciado">Divorciado</option>
+              <option value="Viudo">Viudo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="primeraVivienda">¿Es su primera vivienda?</label>
+            <select id="primeraVivienda" required>
+              <option value="true">Sí, no tengo otra vivienda</option>
+              <option value="false">No, ya tengo otra vivienda</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tieneTerreno">¿Tiene terreno propio?</label>
+            <select id="tieneTerreno" required>
+              <option value="false">No</option>
+              <option value="true">Sí, tengo terreno propio</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit">Guardar Usuario</button>
+        <div id="msg"></div>
+      </form>
+    </div>
+
+    <div class="table-container">
+      <h2>Lista de Usuarios</h2>
+      <div class="table-responsive">
+        <table id="clientesTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>DNI</th>
+              <th>Correo</th>
+              <th>Teléfono</th>
+              <th>Ingresos</th>
+              <th>Estado Civil</th>
+              <th>Bono TP</th> <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const api = '/api';
+    const token = localStorage.getItem('mhf_token');
+    
+    // Verificación de sesión
+    if (!token) { 
+      alert('Inicia sesión para continuar'); 
+      window.location.href = '/login.html'; 
+    }
+
+    document.getElementById('logout').onclick = () => {
+      localStorage.removeItem('mhf_token');
+      localStorage.removeItem('mhf_user');
+      window.location.href = '/login.html';
+    };
+
+    const form = document.getElementById('clienteForm');
+    const tbody = document.querySelector('#clientesTable tbody');
+    const msg = document.getElementById('msg');
+    const formTitle = document.getElementById('formTitle');
+    let editMode = false;
+
+    // Carga de clientes y cálculo del bono
+    async function loadClientes() {
+      try {
+        const res = await fetch(api + '/clients', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) throw new Error('Error al cargar clientes');
+        
+        const clientes = await res.json();
+        tbody.innerHTML = '';
+        
+        clientes.forEach(c => {
+          const bonoEval = evaluarBonoTechoPropio(c);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${c.id}</td>
+            <td>${c.full_name}</td>
+            <td>${c.dni}</td>
+            <td>${c.email}</td>
+            <td>${c.phone}</td>
+            <td>S/ ${parseFloat(c.income).toFixed(2)}</td>
+            <td>${c.marital_status}</td>
+            <td style="font-size:0.75rem;">${bonoEval.html}</td>
+            <td class="actions">
+              <button class="edit" onclick="editarCliente(${c.id}, '${c.full_name}', '${c.dni}', '${c.email}', '${c.phone}', '${c.income}', '${c.marital_status}', ${c.es_primera_vivienda}, ${c.tiene_terreno_propio})">Editar</button>
+              <button class="delete" onclick="eliminarCliente(${c.id})">Eliminar</button>
+            </td>`;
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    // Tu lógica matemática original del bono
+    function evaluarBonoTechoPropio(cliente) {
+      const ingresos = parseFloat(cliente.income) || 0;
+      const esPrimeraVivienda = cliente.es_primera_vivienda !== false; // asume true si undefined
+      const tieneTerreno = cliente.tiene_terreno_propio === true;
+      
+      const LIMITE_COMPRA = 3715;
+      const LIMITE_CONSTRUIR = 2706;
+      
+      let resultado = { aplica: false, modalidades: [], html: '' };
+      
+      if (!esPrimeraVivienda) {
+        resultado.html = '<span class="bono-no-aplica">No aplica<br><small>(Ya tiene vivienda)</small></span>';
+        return resultado;
+      }
+      
+      if (ingresos <= LIMITE_COMPRA) {
+        resultado.aplica = true;
+        resultado.modalidades.push({ tipo: 'Compra' });
+      }
+      
+      if (ingresos <= LIMITE_CONSTRUIR && tieneTerreno) {
+        resultado.aplica = true;
+        resultado.modalidades.push({ tipo: 'Construcción' });
+      }
+      
+      if (resultado.aplica) {
+        // Formateo simple para que no ocupe mucho espacio
+        const modalidadesText = resultado.modalidades.map(m => m.tipo).join(', ');
+        resultado.html = `<span class="bono-aplica">Aplica<br><small>${modalidadesText}</small></span>`;
+      } else {
+        resultado.html = '<span class="bono-no-aplica">No aplica<br><small>(Ingresos exceden límite)</small></span>';
+      }
+      return resultado;
+    }
+
+    // Validaciones
+    function validarNombre(nombre) {
+      if (!nombre || nombre.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(nombre)) return 'El nombre solo puede contener letras y espacios';
+      return null;
+    }
+    function validarDNI(dni) {
+      if (!dni) return 'El DNI es obligatorio';
+      if (!/^\d{8}$/.test(dni)) return 'El DNI debe tener exactamente 8 dígitos numéricos';
+      return null;
+    }
+    function validarEmail(email) {
+      if (!email) return 'El correo es obligatorio';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'El formato del correo no es válido';
+      return null;
+    }
+    function validarTelefono(telefono) {
+      if (!telefono) return 'El teléfono es obligatorio';
+      if (!/^9\d{8}$/.test(telefono)) return 'El teléfono debe tener 9 dígitos y empezar con 9';
+      return null;
+    }
+    function validarIngresos(ingresos) {
+      if (!ingresos || parseFloat(ingresos) <= 0) return 'Los ingresos deben ser mayores a 0';
+      if (parseFloat(ingresos) > 1000000) return 'Los ingresos no pueden superar S/ 1,000,000';
+      return null;
+    }
+    function validarEstadoCivil(estado) {
+      if (!estado) return 'Debe seleccionar un estado civil';
+      return null;
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('nombre').value;
+      const dni = document.getElementById('dni').value;
+      const correo = document.getElementById('correo').value;
+      const telefono = document.getElementById('telefono').value;
+      const ingresos = document.getElementById('ingresos').value;
+      const estado = document.getElementById('estado').value;
+
+      let error = validarNombre(nombre) || validarDNI(dni) || validarEmail(correo) || 
+                  validarTelefono(telefono) || validarIngresos(ingresos) || validarEstadoCivil(estado);
+      
+      if (error) {
+        msg.innerText = error;
+        msg.className = 'error';
+        return;
+      }
+
+      const data = {
+        full_name: nombre.trim(),
+        dni: dni,
+        email: correo.trim(),
+        phone: telefono,
+        income: ingresos,
+        marital_status: estado,
+        es_primera_vivienda: document.getElementById('primeraVivienda').value === 'true',
+        tiene_terreno_propio: document.getElementById('tieneTerreno').value === 'true'
+      };
+
+      let res;
+      try {
+        if (editMode) {
+          const id = document.getElementById('clienteId').value;
+          res = await fetch(api + '/clients/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify(data)
+          });
+          formTitle.textContent = "Registrar Usuario";
+          editMode = false;
+        } else {
+          res = await fetch(api + '/clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify(data)
+          });
+        }
+
+        if (!res.ok) throw new Error('Error en la petición');
+        
+        msg.innerText = 'Usuario guardado correctamente';
+        msg.className = '';
+        form.reset();
+        // Reset selects manual
+        document.getElementById('primeraVivienda').value = 'true';
+        document.getElementById('tieneTerreno').value = 'false';
+        
+        loadClientes();
+        
+      } catch (err) {
+        msg.innerText = 'Error al guardar usuario. Verifique los datos.';
+        msg.className = 'error';
+      }
+    };
+
+    window.eliminarCliente = async (id) => {
+      if (!confirm('¿Eliminar este cliente?')) return;
+      await fetch(api + '/clients/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      loadClientes();
+    };
+
+    window.editarCliente = (id, nombre, dni, correo, telefono, ingresos, estado, primeraVivienda, tieneTerreno) => {
+      document.getElementById('clienteId').value = id;
+      document.getElementById('nombre').value = nombre;
+      document.getElementById('dni').value = dni;
+      document.getElementById('correo').value = correo;
+      document.getElementById('telefono').value = telefono;
+      document.getElementById('ingresos').value = ingresos;
+      document.getElementById('estado').value = estado;
+      
+      // Manejo seguro de booleanos para los selects
+      document.getElementById('primeraVivienda').value = (primeraVivienda === true || primeraVivienda === 'true') ? 'true' : 'false';
+      document.getElementById('tieneTerreno').value = (tieneTerreno === true || tieneTerreno === 'true') ? 'true' : 'false';
+      
+      formTitle.textContent = "Editar Usuario";
+      editMode = true;
+      
+      // Scroll hacia el formulario
+      document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Cargar inicial
+    loadClientes();
+  </script>
+</body>
+</html>

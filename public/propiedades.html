@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestión de Inmuebles - AsesoriaFinanciera</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="estilos.css">
+  
+  <style>
+    /* Estilos originales preservados */
+    .form-container, .table-container {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.25rem;
+      border: 1px solid var(--gray-200);
+    }
+    .form-container h2, .table-container h2 {
+      color: var(--gray-800);
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+    .msg {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .actions button {
+      margin-right: 0.35rem;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+    }
+    /* Badges de estado */
+    .badge-disp { background: var(--success-light); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-res { background: var(--warning-light); color: var(--warning); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-vend { background: var(--danger-light); color: var(--danger); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">
+      <span>AsesoriaFinanciera</span>
+    </div>
+    <a href="/inmuebles.html" class="active">Inmuebles</a>
+    <a href="/usuarios.html">Usuarios</a>
+    <a href="/planpagos.html">Plan de Pagos</a>
+    <a href="/creditos.html">Créditos</a>
+    <div class="logout">
+      <button id="logout">Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <h1>Gestión de Inmuebles</h1>
+    <p style="color: var(--gray-500); margin-bottom: 1.25rem;">Administra las propiedades disponibles</p>
+
+    <div class="form-container">
+      <h2 id="form-title">Registrar Inmueble</h2>
+      <div class="form-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
+        <div class="form-group">
+            <label>Proyecto</label>
+            <input id="pname" placeholder="Nombre del proyecto">
+        </div>
+        <div class="form-group">
+            <label>Dirección</label>
+            <input id="paddr" placeholder="Dirección completa">
+        </div>
+        <div class="form-group">
+            <label>Área (m²)</label>
+            <input id="parea" type="number" placeholder="Ej: 120">
+        </div>
+        <div class="form-group">
+            <label>Habitaciones</label>
+            <input id="prooms" type="number" placeholder="Ej: 3">
+        </div>
+        <div class="form-group">
+            <label>Precio</label>
+            <input id="pprice" type="number" placeholder="Ej: 250000">
+        </div>
+        <div class="form-group">
+            <label>Moneda</label>
+            <select id="pcurrency">
+            <option value="PEN">Soles (PEN)</option>
+            <option value="USD">Dólares (USD)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Estado</label>
+            <select id="pstatus">
+            <option>Disponible</option>
+            <option>Reservado</option>
+            <option>Vendido</option>
+            </select>
+        </div>
+      </div>
+      <button id="save" style="margin-top:1rem;">Guardar Inmueble</button>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="table-container">
+      <h2>Lista de Inmuebles</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Proyecto</th>
+              <th>Dirección</th>
+              <th>Área</th>
+              <th>Hab.</th>
+              <th>Precio</th>
+              <th>Moneda</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const api = '/api';
+    const token = localStorage.getItem('mhf_token');
+    if(!token){ alert('Inicia sesión'); window.location.href='/login.html'; }
+
+    document.getElementById('logout').onclick = ()=>{
+      localStorage.removeItem('mhf_token');
+      localStorage.removeItem('mhf_user');
+      window.location.href='/login.html';
+    };
+
+    let editId = null;
+
+    // TUS VALIDACIONES ORIGINALES
+    function validarProyecto(proyecto) {
+      if (!proyecto || proyecto.trim().length < 3) return 'El nombre del proyecto debe tener al menos 3 caracteres';
+      return null;
+    }
+    function validarDireccion(direccion) {
+      if (!direccion || direccion.trim().length < 5) return 'La dirección debe tener al menos 5 caracteres';
+      return null;
+    }
+    function validarArea(area) {
+      if (!area || parseFloat(area) <= 0) return 'El área debe ser mayor a 0';
+      if (parseFloat(area) > 10000) return 'El área no puede superar 10,000 m²';
+      return null;
+    }
+    function validarHabitaciones(habitaciones) {
+      if (!habitaciones || parseInt(habitaciones) < 1) return 'Debe tener al menos 1 habitación';
+      if (parseInt(habitaciones) > 20) return 'El máximo es 20 habitaciones';
+      return null;
+    }
+    function validarPrecio(precio) {
+      if (!precio || parseFloat(precio) <= 0) return 'El precio debe ser mayor a 0';
+      if (parseFloat(precio) > 50000000) return 'El precio no puede superar 50,000,000';
+      return null;
+    }
+
+    async function load(){
+      try {
+          const res = await fetch(api+'/properties',{ headers:{ Authorization:'Bearer '+token }});
+          const props = await res.json();
+          document.getElementById('list').innerHTML = props.map(p => {
+            // Lógica visual simple para el estado
+            let badgeClass = 'badge-disp';
+            if(p.status === 'Reservado') badgeClass = 'badge-res';
+            if(p.status === 'Vendido') badgeClass = 'badge-vend';
+
+            return `
+              <tr>
+                <td>${p.id}</td>
+                <td>${p.project_name}</td>
+                <td>${p.address}</td>
+                <td>${p.area}</td>
+                <td>${p.rooms}</td>
+                <td>${p.currency === 'PEN' ? 'S/ ' : '$'}${p.price}</td>
+                <td>${p.currency}</td>
+                <td><span class="${badgeClass}">${p.status}</span></td>
+                <td class="actions">
+                  <button class="edit" onclick='edit(${JSON.stringify(p)})'>Editar</button>
+                  <button class="delete" onclick="del(${p.id})">Eliminar</button>
+                </td>
+              </tr>`;
+          }).join('');
+      } catch(e) { console.error(e); }
+    }
+    load();
+
+    document.getElementById('save').onclick = async ()=>{
+      const proyecto = document.getElementById('pname').value;
+      const direccion = document.getElementById('paddr').value;
+      const area = document.getElementById('parea').value;
+      const habitaciones = document.getElementById('prooms').value;
+      const precio = document.getElementById('pprice').value;
+      const moneda = document.getElementById('pcurrency').value;
+      const estado = document.getElementById('pstatus').value;
+
+      let error = validarProyecto(proyecto) || validarDireccion(direccion) || 
+                  validarArea(area) || validarHabitaciones(habitaciones) || validarPrecio(precio);
+      if (error) {
+        document.getElementById('msg').innerText = error;
+        document.getElementById('msg').style.color = '#dc2626';
+        document.getElementById('msg').style.backgroundColor = '#fee2e2';
+        return;
+      }
+
+      const data = {
+        project_name: proyecto.trim(),
+        address: direccion.trim(),
+        area: area,
+        rooms: habitaciones,
+        price: precio,
+        currency: moneda,
+        status: estado
+      };
+      
+      let url = api+'/properties';
+      let method = 'POST';
+      if(editId){ url += '/'+editId; method = 'PUT'; }
+
+      const res = await fetch(url, {
+        method,
+        headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
+        body: JSON.stringify(data)
+      });
+      
+      if(!res.ok){ document.getElementById('msg').innerText='Error al guardar'; return; }
+
+      const msgEl = document.getElementById('msg');
+      msgEl.innerText = editId ? 'Inmueble actualizado' : 'Inmueble guardado';
+      msgEl.style.color = '#166534';
+      msgEl.style.backgroundColor = '#dcfce7';
+      
+      editId = null;
+      document.getElementById('form-title').innerText = 'Registrar Inmueble';
+      document.getElementById('save').innerText = 'Guardar Inmueble';
+      
+      // Limpiar inputs
+      document.getElementById('pname').value = '';
+      document.getElementById('paddr').value = '';
+      document.getElementById('parea').value = '';
+      document.getElementById('prooms').value = '';
+      document.getElementById('pprice').value = '';
+      
+      load();
+    };
+
+    window.edit = (p)=>{
+      editId = p.id;
+      document.getElementById('form-title').innerText = 'Editar Inmueble';
+      document.getElementById('save').innerText = 'Actualizar';
+      document.getElementById('pname').value = p.project_name;
+      document.getElementById('paddr').value = p.address;
+      document.getElementById('parea').value = p.area;
+      document.getElementById('prooms').value = p.rooms;
+      document.getElementById('pprice').value = p.price;
+      document.getElementById('pcurrency').value = p.currency;
+      document.getElementById('pstatus').value = p.status;
+      // Scroll arriba
+      document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.del = async (id)=>{
+      if(!confirm('¿Eliminar esta propiedad?')) return;
+      await fetch(api+'/properties/'+id,{ method:'DELETE', headers:{ Authorization:'Bearer '+token }});
+      load();
+    };
+  </script>
+</body>
+</html>

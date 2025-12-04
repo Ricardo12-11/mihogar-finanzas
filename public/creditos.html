@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <link rel="icon" type="image/png" href="icon.png">
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>Créditos - MiHogarFinanzas</title>
+  <link rel="stylesheet" href="estilos.css">
+  <style>
+    .content-box {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+      margin-bottom: 1.25rem;
+      border: 1px solid #e5e7eb;
+    }
+    .content-box h2 {
+      color: #1e293b;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 8px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: var(--primary);
+      color: white;
+      padding: 0.6rem 0.4rem;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+    th:first-child { border-radius: 6px 0 0 0; }
+    th:last-child { border-radius: 0 6px 0 0; }
+    td {
+      padding: 0.5rem 0.4rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    tr:hover { background: #f8fafc; }
+    .btn-ver {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .btn-ver:hover { background: #2563eb; }
+    .btn-eliminar {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-left: 0.3rem;
+    }
+    .btn-eliminar:hover { background: #dc2626; }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      max-width: 900px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .modal-header h3 { margin: 0; color: #1e293b; }
+    .btn-cerrar {
+      background: #6b7280;
+      color: white;
+      border: none;
+      padding: 0.4rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .indicador {
+      display: inline-block;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .indicador-van { background: #dcfce7; color: #166534; }
+    .indicador-tir { background: #e0f2fe; color: #0369a1; }
+    .indicador-tcea { background: #fef3c7; color: #92400e; }
+    .detalle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .detalle-item {
+      background: #f8fafc;
+      padding: 0.8rem;
+      border-radius: 6px;
+    }
+    .detalle-item label {
+      font-size: 0.7rem;
+      color: #64748b;
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+    .detalle-item span {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand">
+    <span>MiHogarFinanzas</span>
+  </div>
+  <a href="/inmuebles.html">Inmuebles</a>
+  <a href="/usuarios.html">Usuarios</a>
+  <a href="/planpagos.html">Plan de Pagos</a>
+  <a href="/creditos.html" class="active">Créditos</a>
+  <div class="logout">
+    <button id="logout">Cerrar Sesión</button>
+  </div>
+</div>
+
+<div class="main">
+  <h1>Créditos Guardados</h1>
+
+  <div class="content-box">
+    <h2>Lista de Créditos</h2>
+    <div class="table-responsive">
+      <table id="tablaCreditos">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Propiedad</th>
+            <th>Monto</th>
+            <th>Plazo</th>
+            <th>TEA</th>
+            <th>Cuota</th>
+            <th>VAN</th>
+            <th>TIR</th>
+            <th>TCEA</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="creditosBody">
+          <tr>
+            <td colspan="12" class="empty-state">Cargando créditos...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para ver detalle del crédito -->
+<div id="modalDetalle" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Detalle del Crédito #<span id="modalCreditoId"></span></h3>
+      <button class="btn-cerrar" onclick="cerrarModal()">Cerrar</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+const api = '/api';
+const token = localStorage.getItem('mhf_token');
+if (!token) { alert('Inicia sesión'); location.href = '/login.html'; }
+
+document.getElementById('logout').onclick = () => {
+  localStorage.removeItem('mhf_token');
+  localStorage.removeItem('mhf_user');
+  window.location.href = '/login.html';
+};
+
+let creditosData = [];
+let clientesData = [];
+let propiedadesData = [];
+
+async function cargarDatos() {
+  try {
+    const [creditosRes, clientesRes, propiedadesRes] = await Promise.all([
+      fetch(api + '/loans', { headers: { Authorization: 'Bearer ' + token } }),
+      fetch(api + '/clients', { headers: { Authorization: 'Bearer ' + token } }),
+      fetch(api + '/properties', { headers: { Authorization: 'Bearer ' + token } })
+    ]);
+
+    creditosData = await creditosRes.json();
+    clientesData = await clientesRes.json();
+    propiedadesData = await propiedadesRes.json();
+
+    renderCreditos();
+  } catch (err) {
+    console.error('Error cargando datos:', err);
+    document.getElementById('creditosBody').innerHTML = 
+      '<tr><td colspan="12" class="empty-state">Error al cargar los créditos</td></tr>';
+  }
+}
+
+function getClienteNombre(clientId) {
+  const cliente = clientesData.find(c => c.id === clientId);
+  return cliente ? cliente.full_name : 'N/A';
+}
+
+function getPropiedadNombre(propertyId) {
+  const propiedad = propiedadesData.find(p => p.id === propertyId);
+  return propiedad ? propiedad.project_name : 'N/A';
+}
+
+function formatMoney(value, moneda = 'PEN') {
+  const simbolo = moneda === 'PEN' ? 'S/' : '$';
+  return simbolo + ' ' + (parseFloat(value) || 0).toFixed(2);
+}
+
+function formatPercent(value) {
+  return (parseFloat(value) * 100 || 0).toFixed(2) + '%';
+}
+
+function renderCreditos() {
+  const tbody = document.getElementById('creditosBody');
+
+  if (!creditosData || creditosData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No hay créditos guardados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = creditosData.map(credito => {
+    const moneda = credito.moneda || 'PEN';
+    const simbolo = moneda === 'PEN' ? 'S/' : '$';
+    
+    return `
+      <tr>
+        <td>${credito.id}</td>
+        <td>${getClienteNombre(credito.clientId)}</td>
+        <td>${getPropiedadNombre(credito.propertyId)}</td>
+        <td>${formatMoney(credito.amount, moneda)}</td>
+        <td>${credito.term_months} cuotas</td>
+        <td>${credito.annual_rate}%</td>
+        <td>${formatMoney(credito.cuota_total || credito.cuota_base, moneda)}</td>
+        <td><span class="indicador indicador-van">${formatMoney(credito.van_calculado, moneda)}</span></td>
+        <td><span class="indicador indicador-tir">${formatPercent(credito.tir_anual)}</span></td>
+        <td><span class="indicador indicador-tcea">${formatPercent(credito.tcea_anual)}</span></td>
+        <td>${new Date(credito.start_date).toLocaleDateString('es-PE')}</td>
+        <td>
+          <button class="btn-ver" onclick="verDetalle(${credito.id})">Ver</button>
+          <button class="btn-eliminar" onclick="eliminarCredito(${credito.id})">Eliminar</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function verDetalle(creditoId) {
+  const credito = creditosData.find(c => c.id === creditoId);
+  if (!credito) return;
+
+  const moneda = credito.moneda || 'PEN';
+  const simbolo = moneda === 'PEN' ? 'S/' : '$';
+
+  document.getElementById('modalCreditoId').textContent = credito.id;
+
+  let cronogramaHtml = '';
+  if (credito.Payments && credito.Payments.length > 0) {
+    cronogramaHtml = `
+      <h4 style="margin-top:1rem; margin-bottom:0.5rem;">Cronograma de Pagos</h4>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Amortización</th>
+              <th>Interés</th>
+              <th>Cuota</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${credito.Payments.map(p => `
+              <tr>
+                <td>${p.installment_number}</td>
+                <td>${formatMoney(p.amortization, moneda)}</td>
+                <td>${formatMoney(p.interest, moneda)}</td>
+                <td><strong>${formatMoney(p.total, moneda)}</strong></td>
+                <td>${formatMoney(p.balance, moneda)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="detalle-grid">
+      <div class="detalle-item">
+        <label>Cliente</label>
+        <span>${getClienteNombre(credito.clientId)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Propiedad</label>
+        <span>${getPropiedadNombre(credito.propertyId)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Monto del Préstamo</label>
+        <span>${formatMoney(credito.amount, moneda)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Plazo</label>
+        <span>${credito.term_months} cuotas</span>
+      </div>
+      <div class="detalle-item">
+        <label>TEA</label>
+        <span>${credito.annual_rate}%</span>
+      </div>
+      <div class="detalle-item">
+        <label>Tipo de Tasa</label>
+        <span>${credito.tipo_tasa || 'Efectiva'}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Cuota</label>
+        <span>${formatMoney(credito.cuota_total || credito.cuota_base, moneda)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Total a Pagar</label>
+        <span>${formatMoney(credito.total_pagar, moneda)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Total Intereses</label>
+        <span>${formatMoney(credito.total_intereses, moneda)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Fecha de Inicio</label>
+        <span>${new Date(credito.start_date).toLocaleDateString('es-PE')}</span>
+      </div>
+    </div>
+
+    <h4 style="margin-bottom:0.5rem;">Indicadores Financieros</h4>
+    <div class="detalle-grid">
+      <div class="detalle-item" style="background:#dcfce7;">
+        <label>VAN</label>
+        <span style="color:#166534;">${formatMoney(credito.van_calculado, moneda)}</span>
+      </div>
+      <div class="detalle-item" style="background:#e0f2fe;">
+        <label>TIR Anual</label>
+        <span style="color:#0369a1;">${formatPercent(credito.tir_anual)}</span>
+      </div>
+      <div class="detalle-item" style="background:#fef3c7;">
+        <label>TCEA</label>
+        <span style="color:#92400e;">${formatPercent(credito.tcea_anual)}</span>
+      </div>
+      <div class="detalle-item">
+        <label>Tasa de Descuento (COK)</label>
+        <span>${credito.tasa_descuento || 20}%</span>
+      </div>
+    </div>
+
+    ${credito.bono_monto > 0 ? `
+      <div class="detalle-item" style="background:#e8f5e9; margin-top:1rem;">
+        <label>Bono Aplicado</label>
+        <span style="color:#2e7d32;">${formatMoney(credito.bono_monto, moneda)}</span>
+      </div>
+    ` : ''}
+
+    ${cronogramaHtml}
+  `;
+
+  document.getElementById('modalDetalle').classList.add('active');
+}
+
+function cerrarModal() {
+  document.getElementById('modalDetalle').classList.remove('active');
+}
+
+async function eliminarCredito(creditoId) {
+  if (!confirm('¿Está seguro de eliminar este crédito?')) return;
+
+  try {
+    const res = await fetch(api + '/loans/' + creditoId, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+
+    if (res.ok) {
+      creditosData = creditosData.filter(c => c.id !== creditoId);
+      renderCreditos();
+      alert('Crédito eliminado correctamente');
+    } else {
+      const data = await res.json();
+      alert('Error: ' + (data.message || 'No se pudo eliminar'));
+    }
+  } catch (err) {
+    console.error('Error eliminando crédito:', err);
+    alert('Error al eliminar el crédito');
+  }
+}
+
+document.getElementById('modalDetalle').onclick = function(e) {
+  if (e.target === this) cerrarModal();
+};
+
+cargarDatos();
+</script>
+</body>
+</html>
