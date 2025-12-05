@@ -20,27 +20,44 @@
       margin-bottom: 1rem;
       font-size: 1.1rem;
     }
+    
+    /* --- MEJORA: SCROLL BAR --- */
     .table-responsive {
       width: 100%;
-      overflow-x: auto;
+      overflow-x: auto; /* Scroll horizontal si es necesario */
+      
+      /* Scroll Vertical activado */
+      max-height: 500px; /* Altura máxima antes de activar scroll */
+      overflow-y: auto;
+      
       border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      position: relative; /* Necesario para el sticky header */
     }
+
     table { width: 100%; border-collapse: collapse; }
+    
     th {
       background: var(--primary);
       color: white;
-      padding: 0.6rem 0.4rem;
+      padding: 0.8rem 0.6rem; /* Un poco más de espacio */
       font-size: 0.75rem;
       text-align: left;
+      
+      /* --- MEJORA: CABECERA FIJA (STICKY) --- */
+      position: sticky;
+      top: 0;
+      z-index: 10; /* Para que quede por encima de las filas */
     }
-    th:first-child { border-radius: 6px 0 0 0; }
-    th:last-child { border-radius: 0 6px 0 0; }
+    
     td {
-      padding: 0.5rem 0.4rem;
+      padding: 0.6rem 0.6rem;
       font-size: 0.8rem;
       border-bottom: 1px solid #e5e7eb;
     }
     tr:hover { background: #f8fafc; }
+    
+    /* Botones */
     .btn-ver {
       background: #3b82f6;
       color: white;
@@ -62,6 +79,8 @@
       margin-left: 0.3rem;
     }
     .btn-eliminar:hover { background: #dc2626; }
+    
+    /* Modal */
     .modal {
       display: none;
       position: fixed;
@@ -101,6 +120,8 @@
       border-radius: 4px;
       cursor: pointer;
     }
+    
+    /* Indicadores */
     .indicador {
       display: inline-block;
       padding: 0.3rem 0.6rem;
@@ -111,6 +132,7 @@
     .indicador-van { background: #dcfce7; color: #166534; }
     .indicador-tir { background: #e0f2fe; color: #0369a1; }
     .indicador-tcea { background: #fef3c7; color: #92400e; }
+    
     .detalle-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -226,22 +248,28 @@ async function cargarDatos() {
     clientesData = await clientesRes.json();
     propiedadesData = await propiedadesRes.json();
 
+    // --- MEJORA: ORDENAR ASCENDENTE (1, 2, 3...) ---
+    if(Array.isArray(creditosData)) {
+        creditosData.sort((a, b) => a.id - b.id);
+    }
+    
     renderCreditos();
   } catch (err) {
     console.error('Error cargando datos:', err);
     document.getElementById('creditosBody').innerHTML = 
-      '<tr><td colspan="12" class="empty-state">Error al cargar los créditos</td></tr>';
+      '<tr><td colspan="12" class="empty-state">Error de conexión al cargar créditos</td></tr>';
   }
 }
 
 function getClienteNombre(clientId) {
-  const cliente = clientesData.find(c => c.id === clientId);
-  return cliente ? cliente.full_name : 'N/A';
+  // Usamos == en vez de === por si viene como texto desde la BD
+  const cliente = clientesData.find(c => c.id == clientId);
+  return cliente ? cliente.full_name : 'Cliente desconocido';
 }
 
 function getPropiedadNombre(propertyId) {
-  const propiedad = propiedadesData.find(p => p.id === propertyId);
-  return propiedad ? propiedad.project_name : 'N/A';
+  const propiedad = propiedadesData.find(p => p.id == propertyId);
+  return propiedad ? propiedad.project_name : 'Propiedad desconocida';
 }
 
 function formatMoney(value, moneda = 'PEN') {
@@ -257,13 +285,16 @@ function renderCreditos() {
   const tbody = document.getElementById('creditosBody');
 
   if (!creditosData || creditosData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No hay créditos guardados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No hay créditos guardados todavía. Ve a "Plan de Pagos" para crear uno.</td></tr>';
     return;
   }
 
   tbody.innerHTML = creditosData.map(credito => {
     const moneda = credito.moneda || 'PEN';
     const simbolo = moneda === 'PEN' ? 'S/' : '$';
+    
+    // Fallback por si la cuota guardada es 0 o null
+    const cuotaMostrar = credito.cuota_total || credito.cuota_base || 0;
     
     return `
       <tr>
@@ -273,11 +304,11 @@ function renderCreditos() {
         <td>${formatMoney(credito.amount, moneda)}</td>
         <td>${credito.term_months} cuotas</td>
         <td>${credito.annual_rate}%</td>
-        <td>${formatMoney(credito.cuota_total || credito.cuota_base, moneda)}</td>
+        <td style="font-weight:bold;">${formatMoney(cuotaMostrar, moneda)}</td>
         <td><span class="indicador indicador-van">${formatMoney(credito.van_calculado, moneda)}</span></td>
         <td><span class="indicador indicador-tir">${formatPercent(credito.tir_anual)}</span></td>
         <td><span class="indicador indicador-tcea">${formatPercent(credito.tcea_anual)}</span></td>
-        <td>${new Date(credito.start_date).toLocaleDateString('es-PE')}</td>
+        <td>${new Date(credito.start_date).toLocaleDateString('es-PE', { timeZone: 'UTC' })}</td>
         <td>
           <button class="btn-ver" onclick="verDetalle(${credito.id})">Ver</button>
           <button class="btn-eliminar" onclick="eliminarCredito(${credito.id})">Eliminar</button>
@@ -292,27 +323,58 @@ function verDetalle(creditoId) {
   if (!credito) return;
 
   const moneda = credito.moneda || 'PEN';
-  const simbolo = moneda === 'PEN' ? 'S/' : '$';
+  
+  // Usamos fallback para cuota
+  const cuotaMostrar = credito.cuota_total || credito.cuota_base || 0;
 
   document.getElementById('modalCreditoId').textContent = credito.id;
 
   let cronogramaHtml = '';
   if (credito.Payments && credito.Payments.length > 0) {
     cronogramaHtml = `
-      <h4 style="margin-top:1rem; margin-bottom:0.5rem;">Cronograma de Pagos</h4>
-      <div class="table-responsive">
+      <h4 style="margin-top:1rem; margin-bottom:0.5rem; border-bottom:1px solid #ddd;">Cronograma de Pagos</h4>
+      <div class="table-responsive" style="max-height:300px;">
         <table>
           <thead>
             <tr>
               <th>N°</th>
               <th>Amortización</th>
               <th>Interés</th>
-              <th>Cuota</th>
+              <th>Cuota Total</th>
               <th>Saldo</th>
             </tr>
           </thead>
           <tbody>
             ${credito.Payments.map(p => `
+              <tr>
+                <td>${p.installment_number}</td>
+                <td>${formatMoney(p.amortization, moneda)}</td>
+                <td>${formatMoney(p.interest, moneda)}</td>
+                <td><strong>${formatMoney(p.total, moneda)}</strong></td>
+                <td>${formatMoney(p.balance, moneda)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (credito.cronograma && Array.isArray(credito.cronograma)) {
+    // Soporte para formato nuevo si se guarda como JSON blob
+    cronogramaHtml = `
+      <h4 style="margin-top:1rem; margin-bottom:0.5rem; border-bottom:1px solid #ddd;">Cronograma de Pagos</h4>
+      <div class="table-responsive" style="max-height:300px;">
+        <table>
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Amortización</th>
+              <th>Interés</th>
+              <th>Cuota Total</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${credito.cronograma.map(p => `
               <tr>
                 <td>${p.installment_number}</td>
                 <td>${formatMoney(p.amortization, moneda)}</td>
@@ -350,12 +412,8 @@ function verDetalle(creditoId) {
         <span>${credito.annual_rate}%</span>
       </div>
       <div class="detalle-item">
-        <label>Tipo de Tasa</label>
-        <span>${credito.tipo_tasa || 'Efectiva'}</span>
-      </div>
-      <div class="detalle-item">
-        <label>Cuota</label>
-        <span>${formatMoney(credito.cuota_total || credito.cuota_base, moneda)}</span>
+        <label>Cuota Mensual</label>
+        <span>${formatMoney(cuotaMostrar, moneda)}</span>
       </div>
       <div class="detalle-item">
         <label>Total a Pagar</label>
@@ -365,13 +423,9 @@ function verDetalle(creditoId) {
         <label>Total Intereses</label>
         <span>${formatMoney(credito.total_intereses, moneda)}</span>
       </div>
-      <div class="detalle-item">
-        <label>Fecha de Inicio</label>
-        <span>${new Date(credito.start_date).toLocaleDateString('es-PE')}</span>
-      </div>
     </div>
 
-    <h4 style="margin-bottom:0.5rem;">Indicadores Financieros</h4>
+    <h4 style="margin-bottom:0.5rem; border-bottom:1px solid #ddd;">Indicadores Financieros</h4>
     <div class="detalle-grid">
       <div class="detalle-item" style="background:#dcfce7;">
         <label>VAN</label>
@@ -386,15 +440,14 @@ function verDetalle(creditoId) {
         <span style="color:#92400e;">${formatPercent(credito.tcea_anual)}</span>
       </div>
       <div class="detalle-item">
-        <label>Tasa de Descuento (COK)</label>
+        <label>COK (Tasa Descuento)</label>
         <span>${credito.tasa_descuento || 20}%</span>
       </div>
     </div>
-
+    
     ${credito.bono_monto > 0 ? `
-      <div class="detalle-item" style="background:#e8f5e9; margin-top:1rem;">
-        <label>Bono Aplicado</label>
-        <span style="color:#2e7d32;">${formatMoney(credito.bono_monto, moneda)}</span>
+      <div style="padding:10px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:6px; margin-top:10px; color:#2e7d32; font-weight:bold;">
+        ✅ Bono del Buen Pagador Aplicado: ${formatMoney(credito.bono_monto, moneda)}
       </div>
     ` : ''}
 
